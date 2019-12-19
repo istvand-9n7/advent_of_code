@@ -3,8 +3,19 @@
 import std.algorithm: map;
 import std.array;
 import std.conv;
+import std.math: abs;
 import std.stdio : File, writeln;
 import std.string;
+
+
+struct GridPoint {
+    int x;
+    int y;
+}
+
+auto manhattan(GridPoint pt1, GridPoint pt2) {
+    return abs(pt1.x - pt2.x) + abs(pt1.y - pt2.y);
+}
 
 auto process_section(char[] section) {
     int[][] coords = [];
