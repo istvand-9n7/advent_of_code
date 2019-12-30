@@ -1,10 +1,10 @@
 #!/usr/bin/env rdmd
 
-import std.algorithm: map;
+import std.algorithm: map, sort;
 import std.array;
 import std.conv;
 import std.math: abs;
-import std.range: takeExactly;
+import std.range: drop, takeExactly;
 import std.stdio : File, writeln;
 import std.string;
 
@@ -86,15 +86,17 @@ auto wire_intersections(GP[] wire1, GP[] wire2) {  // TODO efficiency: hashtable
     return intersections;
 }
 
-int process_readings(const char[][][] wire_readings) {
-    auto result = 0;
+auto process_readings(const char[][][] wire_readings) {
     GP[][] coords = [];
     foreach (wire_reading; wire_readings){
         coords ~= wire_coords(wire_reading);
     }
     auto intersections = wire_intersections(coords[0], coords[1]);
-    writeln("Intersections: ", intersections);
-    return result;
+    //writeln("Intersections: ", intersections);
+    // TODO remove (0) better? also remove the first .array (.sort needs help :\)
+    auto result = intersections.map!(a => manhattan(GP(0,0), a)).array.sort.drop(1).array;
+    //writeln("Manhattans: ", result);
+    return result[0];
 }
 
 void main() {
@@ -118,7 +120,7 @@ unittest {
     }
     auto expected = [GP(0,0), GP(1,0), GP(3,0)];
     auto result = wire_intersections(coords[0], coords[1]);
-    writeln(result);
+    //writeln(result);
     assert(result == expected);
 
 }
@@ -131,7 +133,7 @@ unittest {
     ];
     auto expected = 159;
     auto result = process_readings(input);
-    writeln(result);
+    //writeln(result);
     assert(result == expected);
 }
 
@@ -142,6 +144,6 @@ unittest {
     ];
     auto expected = 135;
     auto result = process_readings(input);
-    writeln(result);
+    //writeln(result);
     assert(result == expected);
 }
