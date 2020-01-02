@@ -1,12 +1,13 @@
 #!/usr/bin/env rdmd
 
-import std.algorithm: map, sort;
+import std.algorithm: map, sort, countUntil, remove;
 import std.array;
 import std.conv;
 import std.math: abs;
 import std.range: drop, takeExactly;
 import std.stdio : File, writeln;
 import std.string;
+import std.typecons: tuple;
 
 
 struct GridPoint {
@@ -31,63 +32,73 @@ auto section_offset(GP[] section, GP offset){
     return section.map!(pt => add(pt, offset)).array;
 }
 
-auto process_section(const char[] section) {
-    GP[] coords = [];
-    auto repeat = section[1..$].to!int; 
+auto process_section(const char[] section, GP offset) {
+    byte[GP] coords;
+    auto repeat = section[1..$].to!int;
+    GP last;
     switch (section[0]) {
         case 'L':
             foreach (r; 0..repeat+1) {
-                coords ~= GP(-r,0); 
+                last = add(GP(-r,0), offset);
+                coords[last] = 0;
             }
             break;
         case 'R':
             foreach (r; 0..repeat+1) {
-                coords ~= GP(r,0); 
-            }            
+                last = add(GP(r,0), offset);
+                coords[last] = 0;
+            }
             break;
         case 'U':
             foreach (r; 0..repeat+1) {
-                coords ~= GP(0,r); 
-            }            
+                last = add(GP(0,r), offset);
+                coords[last] = 0;
+            }
             break;
         case 'D':
             foreach (r; 0..repeat+1) {
-                coords ~= GP(0,-r); 
-            }            
+                last = add(GP(0,-r), offset);
+                coords[last] = 0;
+            }
             break;
         default:
             // TODO throw exception (or do sthing else if we want nothrow)
             break;
     }
-    return coords;
+    return tuple(coords, last);
 }
 
 // alternatively: store only the segment endpoints and use a segment intersection algorithm
 auto wire_coords(const char[][] wire_reading) {
-    GP[] wire = [GP(0,0)];  // TODO efficiency: hashtable to emulate a set
+    byte[GP] wire;  // efficiency: hashtable to emulate a set
+    auto offset = GP(0,0);
     foreach (instr; wire_reading) {
-        auto section_coords = process_section(instr)[1..$];  // TODO eliminate duplicates better?
-        wire ~= section_coords.section_offset(wire[$-1]);
+        auto section_coords_offset = process_section(instr, offset);
+        auto section_coords = section_coords_offset[0];  // pattern matching? :/
+        offset = section_coords_offset[1];
+        //writeln("Saved offset: ", offset);
+        // need a merge function
+        foreach (new_coord, coord_val; section_coords) {
+            wire[new_coord] = 0;
+        }
     }
     //writeln("Wire: ", wire);
     return wire;
 }
 
-auto wire_intersections(GP[] wire1, GP[] wire2) {  // TODO efficiency: hashtables
+auto wire_intersections(byte[GP] wire1, byte[GP] wire2) {
     GP[] intersections = [];
     // cannot use setops because the wire coordinates are not sorted
-    foreach (coord1; wire1) {
-        foreach (coord2; wire2) {
-            if (coord1 == coord2) {
-                intersections ~= coord1;
-            }
+    foreach (coord1, _; wire1) {
+        if (coord1 in wire2) {
+            intersections ~= coord1;
         }
     }
     return intersections;
 }
 
 auto process_readings(const char[][][] wire_readings) {
-    GP[][] coords = [];
+    byte[GP][] coords = [];
     foreach (wire_reading; wire_readings){
         coords ~= wire_coords(wire_reading);
     }
@@ -114,14 +125,27 @@ unittest {
         ["R5","D7","R4","U4"],
         ["U3","R3","D7","L2","U5"]
     ];
-    GP[][] coords = [];
+    byte[GP][] coords = [];
     foreach (wire_reading; input){
-        coords ~= wire_coords(wire_reading);
+        auto c = wire_coords(wire_reading);
+        writeln("[test] Got coords: ", c);
+        coords ~= c;
     }
     auto expected = [GP(0,0), GP(1,0), GP(3,0)];
     auto result = wire_intersections(coords[0], coords[1]);
-    //writeln(result);
-    assert(result == expected);
+    writeln();
+    writeln("[test] result initially: ", result);
+    // sorting would need opCmp on GridPoint, let's work around
+    foreach (pt; expected) {
+        writeln("[test] Searching: ", pt, " in result: ", result);
+        auto idx = countUntil(result, pt);
+        if (idx != -1) {
+            writeln("[test] Found: [", idx,"] ", pt);
+            result = result.remove(idx);
+        }
+    }
+    writeln("[test] result is now ", result);
+    assert(result.length == 0);
 
 }
 
