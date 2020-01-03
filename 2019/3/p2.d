@@ -21,10 +21,6 @@ auto add(GP pt1, GP pt2) {
     return GP(pt1.x+pt2.x, pt1.y+pt2.y);
 }
 
-auto manhattan(GP pt1, GP pt2) {
-    return abs(pt1.x - pt2.x) + abs(pt1.y - pt2.y);
-}
-
 // this one should work as a "join" operation (of the fork/join lore)
 auto section_offset(GP[] section, GP offset){
     // I'd like to see it as <array> + scalar = <array>
@@ -32,61 +28,69 @@ auto section_offset(GP[] section, GP offset){
     return section.map!(pt => add(pt, offset)).array;
 }
 
-auto process_section(const char[] section, GP offset) {
-    byte[GP] coords;
+auto process_section(const char[] section, GP offset, uint steps_offset) {
+    uint[GP] coords;
     auto repeat = section[1..$].to!int;
     GP last;
+    const uint default_step = 0;
+    uint last_step = 0;
     switch (section[0]) {
         case 'L':
             foreach (r; 0..repeat+1) {
                 last = add(GP(-r,0), offset);
-                coords[last] = 0;
+                last_step = coords.get(last, default_step) + steps_offset + r;
+                coords[last] = last_step;
             }
             break;
         case 'R':
             foreach (r; 0..repeat+1) {
                 last = add(GP(r,0), offset);
-                coords[last] = 0;
+                last_step = coords.get(last, default_step) + steps_offset + r;
+                coords[last] = last_step;
             }
             break;
         case 'U':
             foreach (r; 0..repeat+1) {
                 last = add(GP(0,r), offset);
-                coords[last] = 0;
+                last_step = coords.get(last, default_step) + steps_offset + r;
+                coords[last] = last_step;
             }
             break;
         case 'D':
             foreach (r; 0..repeat+1) {
                 last = add(GP(0,-r), offset);
-                coords[last] = 0;
+                last_step = coords.get(last, default_step) + steps_offset + r;
+                coords[last] = last_step;
             }
             break;
         default:
             // TODO throw exception (or do sthing else if we want nothrow)
             break;
     }
-    return tuple(coords, last);
+    return tuple(coords, last, last_step);
 }
 
 // alternatively: store only the segment endpoints and use a segment intersection algorithm
 auto wire_coords(const char[][] wire_reading) {
-    byte[GP] wire;  // efficiency: hashtable to emulate a set
+    uint[GP] wire;  // efficiency: hashtable to emulate a set
     auto offset = GP(0,0);
+    uint steps_offset = 0;
     foreach (instr; wire_reading) {
-        auto section_coords_offset = process_section(instr, offset);
+        auto section_coords_offset = process_section(instr, offset, steps_offset);
         auto section_coords = section_coords_offset[0];  // pattern matching? :/
         offset = section_coords_offset[1];
+        steps_offset = section_coords_offset[2];
         //writeln("Saved offset: ", offset);
         // need a merge function
         foreach (new_coord, coord_val; section_coords) {
-            wire[new_coord] = 0;
+            wire[new_coord] = coord_val;
         }
     }
     //writeln("Wire: ", wire);
     return wire;
 }
 
-auto wire_intersections(byte[GP] wire1, byte[GP] wire2) {
+auto wire_intersections(uint[GP] wire1, uint[GP] wire2) {
     GP[] intersections = [];
     // cannot use setops because the wire coordinates are not sorted
     foreach (coord1, _; wire1) {
@@ -98,15 +102,14 @@ auto wire_intersections(byte[GP] wire1, byte[GP] wire2) {
 }
 
 auto process_readings(const char[][][] wire_readings) {
-    byte[GP][] coords = [];
+    uint[GP][] coords = [];
     foreach (wire_reading; wire_readings){
         coords ~= wire_coords(wire_reading);
     }
     auto intersections = wire_intersections(coords[0], coords[1]);
     //writeln("Intersections: ", intersections);
     // TODO remove (0) better? also remove the first .array (.sort needs help :\)
-    auto result = intersections.map!(a => manhattan(GP(0,0), a)).array.sort.drop(1).array;
-    //writeln("Manhattans: ", result);
+    auto result = intersections.map!(a => coords[0][a] + coords[1][a]).array.sort.drop(1).array;
     return result[0];
 }
 
@@ -125,26 +128,26 @@ unittest {
         ["R5","D7","R4","U4"],
         ["U3","R3","D7","L2","U5"]
     ];
-    byte[GP][] coords = [];
+    uint[GP][] coords = [];
     foreach (wire_reading; input){
         auto c = wire_coords(wire_reading);
-        writeln("[test] Got coords: ", c);
+        //writeln("[test] Got coords: ", c);
         coords ~= c;
     }
     auto expected = [GP(0,0), GP(1,0), GP(3,0)];
     auto result = wire_intersections(coords[0], coords[1]);
-    writeln();
-    writeln("[test] result initially: ", result);
+    //writeln();
+    //writeln("[test] result initially: ", result);
     // sorting would need opCmp on GridPoint, let's work around
     foreach (pt; expected) {
-        writeln("[test] Searching: ", pt, " in result: ", result);
+        //writeln("[test] Searching: ", pt, " in result: ", result);
         auto idx = countUntil(result, pt);
         if (idx != -1) {
-            writeln("[test] Found: [", idx,"] ", pt);
+            //writeln("[test] Found: [", idx,"] ", pt);
             result = result.remove(idx);
         }
     }
-    writeln("[test] result is now ", result);
+    //writeln("[test] result is now ", result);
     assert(result.length == 0);
 
 }
@@ -155,7 +158,7 @@ unittest {
         ["R75","D30","R83","U83","L12","D49","R71","U7","L72"],
         ["U62","R66","U55","R34","D71","R55","D58","R83"]
     ];
-    auto expected = 159;
+    auto expected = 610;
     auto result = process_readings(input);
     //writeln(result);
     assert(result == expected);
@@ -166,7 +169,7 @@ unittest {
         ["R98","U47","R26","D63","R33","U87","L62","D20","R33","U53","R51"],
         ["U98","R91","D20","R16","D67","R40","U7","R15","U6","R7"]
     ];
-    auto expected = 135;
+    auto expected = 410;
     auto result = process_readings(input);
     //writeln(result);
     assert(result == expected);
