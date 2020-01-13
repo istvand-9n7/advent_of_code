@@ -1,5 +1,6 @@
 #!/usr/bin/env rdmd
 
+import std.algorithm: canFind, group, map;
 import std.range: iota;
 import std.stdio: writeln;
 import std.typecons: Tuple, tuple;
@@ -80,14 +81,10 @@ bool check_increase(pw pw) {
 }
 
 bool check_dup(pw pw) {
-    int prev = pw[0];
-    foreach (digit; pw[1..$]) {
-        if (prev == digit) {
-            return true;
-        }
-        prev = digit;
-    }
-    return false;
+    auto pw_slice = pw[];  // "not an input range" for int[6], which is weird to say the least
+    auto streaks = pw_slice.group.map!(e => e[1]);
+    writeln(streaks);
+    return streaks.canFind(2);
 }
 
 bool check_valid(in pw pw) {
@@ -134,11 +131,16 @@ void main() {
 
 unittest {
     Tuple!(pw,bool)[] tcs = [
-        tuple(cast(pw)[1,1,1,1,1,1], true),
+        tuple(cast(pw)[1,1,1,1,1,1], false),
         tuple(cast(pw)[2,2,3,4,5,0], false),
         tuple(cast(pw)[1,2,3,7,8,9], false)
     ];
     foreach (testcase; tcs) {
         assert(check_valid(testcase[0]) == testcase[1]);
     }
+}
+
+unittest {
+    pw tc = [1,1,1,1,2,2];
+    assert(check_valid(tc) == true);
 }
