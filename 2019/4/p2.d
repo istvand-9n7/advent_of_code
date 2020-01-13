@@ -11,6 +11,7 @@ alias pw = int[6];
 struct Password6 {
 
     pw _pw;
+    alias _pw this;
 
     this(in pw pw) {
         // TODO validate digit range
@@ -57,16 +58,6 @@ struct Password6 {
         // dunno how to select the external function in case of a name clash
         return check_valid(this._pw);
     }
-
-    int opCmp(ref const Password6 rhs) const {
-        // TODO think about private _pw-s
-        // this._pw.opCmp(rhs._pw)  // did not work because undefidedness for parameter const(int[6])- how to forward then?
-        if (this._pw < rhs._pw) return -1;
-        if (this._pw > rhs._pw) return 1;
-        if (this._pw == rhs._pw) return 0;
-        return 0;
-    }
-
 }
 
 bool check_increase(pw pw) {
